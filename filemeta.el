@@ -6,7 +6,7 @@
 ;; (require 'filemeta-test)
 
 (defvar ts-attach:root-dir "~/.ts-attach")
-(defvar ts-attach:unhealthy-dir (f-join ts-attach:root-dir "unhealthy"))
+(defvar ts-attach:unhealthy-dir (f-join ts-attach:root-dir ".meta" "unhealthy"))
 (defvar ts-attach:db-name "db")
 (defvar ts-attach:large-file-threshold 500000000) ;; ~500mb?
 
@@ -94,8 +94,19 @@ and create a fresh new database for TS again."
   (ts-attach:ensure-ts-db ts)
   (let ((plist (ts-attach:read-db-for-ts ts)))
     (ts-attach:write-attachment!
-     (plist-put plist
-                :tag (sort (-uniq (-remove (lambda (x) (equal x tag))
-                                           (plist-get plist :tag)))
-                           #'string<))
+     (plist-put plist :tag
+                (sort (-uniq
+                       (-remove (lambda (x) (equal x tag))
+                                (plist-get plist :tag)))
+                      #'string<))
      ts)))
+
+
+;; interactive
+;;
+;; - TODO -
+;; dump db
+;; all ts that have tag BLAH
+;; all tags of a specific ts
+;; union of tags
+;; all tags
