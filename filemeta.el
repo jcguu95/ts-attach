@@ -6,11 +6,15 @@
 ;; (require 'filemeta-test)
 
 (defvar ts-attach:root-dir "~/.ts-attach")
-(defvar ts-attach:unhealthy-dir (f-join ts-attach:root-dir ".meta" "unhealthy"))
+(defvar ts-attach:meta-dir
+  (f-join ts-attach:root-dir ".meta"))
+(defvar ts-attach:unhealthy-dir
+  (f-join ts-attach:meta-dir "unhealthy"))
 (defvar ts-attach:db-name "db")
 (defvar ts-attach:large-file-threshold 500000000) ;; ~500mb?
 
 (loop for dir in (list ts-attach:root-dir
+                       ts-attach:meta-dir
                        ts-attach:unhealthy-dir)
       do (mkdir dir t))
 
@@ -46,7 +50,7 @@
       (progn (ts-attach:read-db-for-ts ts) nil)
     (error t)))
 
-(defun ts-attach:ensure-ts-db (ts)
+(defun ts-attach:ensure-ts-db! (ts)
   "When database for TS is unhealthy, move it to another place,
 and create a fresh new database for TS again."
   (when (ts-attach:db-ill-p ts)
@@ -68,18 +72,15 @@ and create a fresh new database for TS again."
   "Overwrite X to the db of TS. Expect X to be READably printed."
   ;; TODO Reformat the plist to be written by a variant of
   ;; #'lispy-multiline before writing.
-  (ts-attach:ensure-ts-db ts)
+  (ts-attach:ensure-ts-db! ts)
   (f-write-text (prin1-to-string x)
                 'utf-8 (ts-attach:db-for-ts ts)))
 
 (defun ts-attach:+tag! (tag ts)
   "Expect TAG to be a symbol. Add TAG to the database of TS."
-  ;; - test -
-  ;; (loop for tag in '(math nerd techie emacs)
-  ;;       do (ts-attach:+tag! tag "20210303-101010"))
   (unless (symbolp tag)
     (error "TAG must be a symbol."))
-  (ts-attach:ensure-ts-db ts)
+  (ts-attach:ensure-ts-db! ts)
   (let ((plist (ts-attach:read-db-for-ts ts)))
     (ts-attach:write-attachment!
      (plist-put plist
@@ -91,7 +92,7 @@ and create a fresh new database for TS again."
   "Expect TAG to be a symbol. Remove TAG from the database of TS."
   (unless (symbolp tag)
     (error "TAG must be a symbol."))
-  (ts-attach:ensure-ts-db ts)
+  (ts-attach:ensure-ts-db! ts)
   (let ((plist (ts-attach:read-db-for-ts ts)))
     (ts-attach:write-attachment!
      (plist-put plist :tag
@@ -101,12 +102,49 @@ and create a fresh new database for TS again."
                       #'string<))
      ts)))
 
+(defun ts-attach:tags-of-ts (ts)
+  "Return all tags for TS."
+  (plist-get (ts-attach:read-db-for-ts ts) :tag))
 
-;; interactive
-;;
-;; - TODO -
-;; dump db
-;; all ts that have tag BLAH
-;; all tags of a specific ts
-;; union of tags
-;; all tags
+(defun ts-attach:all-ts ()
+  "Return all timestamps in the database."
+  (mapcar #'f-filename
+          (-remove (lambda (x) (equal x ts-attach:meta-dir))
+                   (f-directories ts-attach:root-dir))))
+
+(defun ts-attach:all-tags ()
+  "Return all tags in the database."
+  (sort
+   (-uniq
+    (-flatten
+     (loop for ts in (ts-attach:all-ts)
+           collect (ts-attach:tags-of-ts ts))))
+   #'string<))
+
+(defun ts-attach:all-ts-such-that (pred)
+  "Return all ts in the database that satisfy PRED."
+  (loop for ts in (ts-attach:all-ts)
+        if (funcall pred ts)
+        collect ts))
+
+(defun ts-attach:all-ts-having-tag (tag)
+  "Return all ts in the database that has tag TAG."
+  (ts-attach:all-ts-such-that
+   (lambda (ts)
+     (member tag (plist-get (ts-attach:read-db-for-ts ts) :tag)))))
+
+(defun ts-attach:dump-db ()
+  "Dump all data!"
+  ;; (ts-attach:dump-db)
+  (mapcar (lambda (entry)
+            (let ((ts (f-filename entry)))
+              (list :ts ts
+                    :dir entry
+                    :data (ts-attach:read-db-for-ts ts))))
+          (-remove (lambda (x) (equal x ts-attach:meta-dir))
+                   (f-directories ts-attach:root-dir))))
+
+;; testing
+(loop for ts in '("18701231-010101" "19700101-105743")
+      do  (loop for tag in '(math nerd techie emacs)
+                do (ts-attach:+tag! tag ts)))
