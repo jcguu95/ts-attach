@@ -87,36 +87,15 @@ and create a fresh new database for TS again."
                            #'string<))
      ts)))
 
-;; (defun filemeta:-tag! (tag file)
-;;   "Expect TAG to be a symbol. Remove all tags that equal to TAG
-;;   in the filemeta of FILE,and write the updated filemeta to the
-;;   hash-file for FILE."
-;;   (unless (symbolp tag)
-;;     (error "TAG must be a symbol."))
-;;   (flet ((sort+uniq (symbols)
-;;                     (sort (-uniq symbols) #'string<)))
-;;     (let* ((plist (filemeta:attachment<-file file))
-;;            (plist_ (plist-put plist ;; TODO fix bad updating method..
-;;                               :tag (sort+uniq
-;;                                     (-remove (lambda (x) (equal x tag))
-;;                                              (plist-get plist :tag))))))
-;;       (filemeta:write-attachment! plist_ file))))
-
-;; (defun filemeta:update-file-history! (file)
-;;   "Check and update the history of the hash of the FILE. Expect
-;; FILE to be a regular file."
-;;   (let* ((plist (filemeta:attachment<-file file))
-;;          (hist (plist-get plist :history))
-;;          (rel-path (filemeta:rel-path<-file file))
-;;          (last-rel-path (-last-item (-last-item hist))))
-;;     ;; Update history slot accordingly.
-;;     (if (equal rel-path last-rel-path)
-;;         ;; Then only need to update time.
-;;         (setf hist (append (-drop-last 1 hist)
-;;                            `(,(list (ts-format) rel-path))))
-;;       ;; Otherwise, add a new entry to history.
-;;       (setf hist (append hist
-;;                          `(,(list (ts-format) rel-path)))))
-;;     ;; Update plist and write to database.
-;;     (plist-put! plist :history hist)
-;;     (filemeta:write-attachment! plist file)))
+(defun ts-attach:-tag! (tag ts)
+  "Expect TAG to be a symbol. Remove TAG from the database of TS."
+  (unless (symbolp tag)
+    (error "TAG must be a symbol."))
+  (ts-attach:ensure-ts-db ts)
+  (let ((plist (ts-attach:read-db-for-ts ts)))
+    (ts-attach:write-attachment!
+     (plist-put plist
+                :tag (sort (-uniq (-remove (lambda (x) (equal x tag))
+                                           (plist-get plist :tag)))
+                           #'string<))
+     ts)))
